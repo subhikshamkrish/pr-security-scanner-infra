@@ -1,0 +1,28 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl
+terraform.exe
+
+# Terraform state
+*.tfstate
+*.tfstate.*
+*.zip
+*.tfplan
+
+# Variable files
+*.auto.tfvars
+
+# IDE
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+
+# Scanner local artifacts
+scanner/.scanner-work/
+
+# OS
+.DS_Store
+Thumbs.db
