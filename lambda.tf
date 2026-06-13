@@ -27,7 +27,10 @@ resource "aws_lambda_function" "trigger" {
 
   environment {
     variables = {
-      STATE_MACHINE_ARN = aws_sfn_state_machine.scanner_workflow.arn
+      STATE_MACHINE_ARN     = aws_sfn_state_machine.scanner_workflow.arn
+      REPORT_BUCKET         = aws_s3_bucket.reports.bucket
+      GITHUB_WEBHOOK_SECRET = var.github_webhook_secret
+      METRICS_NAMESPACE     = var.metrics_namespace
     }
   }
 
@@ -45,7 +48,8 @@ resource "aws_lambda_function" "comparison" {
 
   environment {
     variables = {
-      REPORT_BUCKET = aws_s3_bucket.reports.bucket
+      REPORT_BUCKET     = aws_s3_bucket.reports.bucket
+      METRICS_NAMESPACE = var.metrics_namespace
     }
   }
 
@@ -63,7 +67,8 @@ resource "aws_lambda_function" "cleanup" {
 
   environment {
     variables = {
-      REPORT_BUCKET = aws_s3_bucket.reports.bucket
+      REPORT_BUCKET     = aws_s3_bucket.reports.bucket
+      METRICS_NAMESPACE = var.metrics_namespace
     }
   }
 

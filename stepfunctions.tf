@@ -67,8 +67,20 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
                             Value = aws_s3_bucket.reports.bucket
                           },
                           {
+                            Name  = "METRICS_NAMESPACE"
+                            Value = var.metrics_namespace
+                          },
+                          {
+                            Name  = "PROJECT_NAME"
+                            Value = var.project_name
+                          },
+                          {
                             Name      = "INPUT_ZIP_KEY"
                             "Value.$" = "$.base.zip_key"
+                          },
+                          {
+                            Name      = "SOURCE_ZIP_URL"
+                            "Value.$" = "$.base.source_zip_url"
                           },
                           {
                             Name      = "REPORT_KEY"
@@ -142,8 +154,20 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
                             Value = aws_s3_bucket.reports.bucket
                           },
                           {
+                            Name  = "METRICS_NAMESPACE"
+                            Value = var.metrics_namespace
+                          },
+                          {
+                            Name  = "PROJECT_NAME"
+                            Value = var.project_name
+                          },
+                          {
                             Name      = "INPUT_ZIP_KEY"
                             "Value.$" = "$.pr.zip_key"
+                          },
+                          {
+                            Name      = "SOURCE_ZIP_URL"
+                            "Value.$" = "$.pr.source_zip_url"
                           },
                           {
                             Name      = "REPORT_KEY"

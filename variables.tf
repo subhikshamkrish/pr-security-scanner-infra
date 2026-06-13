@@ -43,6 +43,17 @@ variable "log_retention_days" {
   default = 14
 }
 
+variable "metrics_namespace" {
+  type    = string
+  default = "PRSecurityScanner"
+}
+
+variable "github_webhook_secret" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
 variable "input_zip_retention_days" {
   type    = number
   default = 1

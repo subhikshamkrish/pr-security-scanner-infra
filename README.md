@@ -14,9 +14,34 @@ Components:
 This version is designed for AWS Learner Lab and uses the pre-created `LabRole`
 and `LabInstanceProfile` instead of creating custom IAM resources.
 
-GitHub Actions should invoke the trigger Lambda, which starts the Step Functions
-workflow. Step Functions handles cache decisions, ECS scans, comparison, and
-temporary input cleanup.
+GitHub sends pull request webhooks to API Gateway. API Gateway invokes the
+trigger Lambda, which validates the GitHub signature and starts the Step
+Functions workflow. Step Functions handles cache decisions, ECS scans,
+comparison, and cleanup.
+
+## GitHub Webhook Setup
+
+Set the webhook secret at apply time. Do not commit the secret to
+`terraform.tfvars`.
+
+```powershell
+$env:TF_VAR_github_webhook_secret = "<random-webhook-secret>"
+.\terraform apply
+.\terraform output github_webhook_url
+```
+
+In the demo GitHub repository, create a webhook:
+
+- Payload URL: value from `github_webhook_url`
+- Content type: `application/json`
+- Secret: same value as `TF_VAR_github_webhook_secret`
+- Events: Pull requests
+- Active: checked
+
+The normal PR trigger no longer needs AWS access keys in GitHub Actions. The
+current scanner downloads public GitHub commit archives directly inside ECS. For
+private repositories, add a GitHub App or short-lived token flow before using
+the direct archive download design.
 
 ## Scanner Container
 

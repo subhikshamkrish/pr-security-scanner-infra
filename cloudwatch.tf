@@ -206,13 +206,177 @@ resource "aws_cloudwatch_dashboard" "scanner" {
       {
         type   = "log"
         x      = 0
-        y      = 20
+        y      = 38
         width  = 24
         height = 8
         properties = {
           title  = "Recent Scanner Logs"
           region = var.aws_region
           query  = "SOURCE '${aws_cloudwatch_log_group.ecs_scanner.name}' | fields @timestamp, @message | sort @timestamp desc | limit 50"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 20
+        width  = 12
+        height = 6
+        properties = {
+          title   = "Scan Completion Rate"
+          region  = var.aws_region
+          view    = "timeSeries"
+          stacked = false
+          metrics = [
+            [var.metrics_namespace, "ScanStarted", "Project", var.project_name, "ScanKind", "base", { id = "base_started", visible = false }],
+            [".", "ScanStarted", ".", ".", ".", "pr", { id = "pr_started", visible = false }],
+            [".", "ScanCompleted", ".", ".", ".", "base", { id = "base_completed", visible = false }],
+            [".", "ScanCompleted", ".", ".", ".", "pr", { id = "pr_completed", visible = false }],
+            [{ expression = "100*((base_completed+pr_completed)/(base_started+pr_started))", label = "Scan Completion Rate (%)", id = "scan_completion_rate" }],
+          ]
+          period = 300
+          stat   = "Sum"
+          yAxis = {
+            left = {
+              min = 0
+              max = 100
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 20
+        width  = 12
+        height = 6
+        properties = {
+          title   = "Average Scan Duration"
+          region  = var.aws_region
+          view    = "timeSeries"
+          stacked = false
+          metrics = [
+            [var.metrics_namespace, "ScanDurationSeconds", "Project", var.project_name, "ScanKind", "base", { label = "Base Scan Duration" }],
+            [".", "ScanDurationSeconds", ".", ".", ".", "pr", { label = "PR Scan Duration" }],
+          ]
+          period = 300
+          stat   = "Average"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 26
+        width  = 12
+        height = 6
+        properties = {
+          title   = "Base Scan Cache Hit Rate"
+          region  = var.aws_region
+          view    = "timeSeries"
+          stacked = false
+          metrics = [
+            [var.metrics_namespace, "BaseScanCacheCheck", { id = "cache_checks", visible = false }],
+            [".", "BaseScanCacheHit", { id = "cache_hits", visible = false }],
+            [{ expression = "100*(cache_hits/cache_checks)", label = "Base Cache Hit Rate (%)", id = "base_cache_hit_rate" }],
+          ]
+          period = 300
+          stat   = "Sum"
+          yAxis = {
+            left = {
+              min = 0
+              max = 100
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 26
+        width  = 12
+        height = 6
+        properties = {
+          title   = "Parallel Scan Completion + PR Comment Success"
+          region  = var.aws_region
+          view    = "timeSeries"
+          stacked = false
+          metrics = [
+            [var.metrics_namespace, "WorkflowStarted", { id = "workflow_started", visible = false }],
+            [".", "ParallelScanCompleted", { id = "parallel_completed", visible = false }],
+            [".", "PRCommentAttempted", { id = "comment_attempted", visible = false }],
+            [".", "PRCommentSucceeded", { id = "comment_succeeded", visible = false }],
+            [{ expression = "100*(parallel_completed/workflow_started)", label = "Parallel Scan Completion Rate (%)", id = "parallel_completion_rate" }],
+            [{ expression = "100*(comment_succeeded/comment_attempted)", label = "PR Comment Success Rate (%)", id = "pr_comment_success_rate" }],
+          ]
+          period = 300
+          stat   = "Sum"
+          yAxis = {
+            left = {
+              min = 0
+              max = 100
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 32
+        width  = 12
+        height = 6
+        properties = {
+          title   = "Input Retrieval Success Rate"
+          region  = var.aws_region
+          view    = "timeSeries"
+          stacked = false
+          metrics = [
+            [var.metrics_namespace, "S3DownloadAttempted", "Project", var.project_name, "ScanKind", "base", { id = "base_download_attempted", visible = false }],
+            [".", "S3DownloadAttempted", ".", ".", ".", "pr", { id = "pr_download_attempted", visible = false }],
+            [".", "S3DownloadSucceeded", ".", ".", ".", "base", { id = "base_download_succeeded", visible = false }],
+            [".", "S3DownloadSucceeded", ".", ".", ".", "pr", { id = "pr_download_succeeded", visible = false }],
+            [".", "SourceDownloadAttempted", ".", ".", ".", "base", { id = "base_source_attempted", visible = false }],
+            [".", "SourceDownloadAttempted", ".", ".", ".", "pr", { id = "pr_source_attempted", visible = false }],
+            [".", "SourceDownloadSucceeded", ".", ".", ".", "base", { id = "base_source_succeeded", visible = false }],
+            [".", "SourceDownloadSucceeded", ".", ".", ".", "pr", { id = "pr_source_succeeded", visible = false }],
+            [{ expression = "100*((base_download_succeeded+pr_download_succeeded+base_source_succeeded+pr_source_succeeded)/(base_download_attempted+pr_download_attempted+base_source_attempted+pr_source_attempted))", label = "Input Retrieval Success Rate (%)", id = "input_retrieval_success_rate" }],
+          ]
+          period = 300
+          stat   = "Sum"
+          yAxis = {
+            left = {
+              min = 0
+              max = 100
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 32
+        width  = 12
+        height = 6
+        properties = {
+          title   = "S3 Report Storage Success Rate"
+          region  = var.aws_region
+          view    = "timeSeries"
+          stacked = false
+          metrics = [
+            [var.metrics_namespace, "S3UploadAttempted", "Project", var.project_name, "ScanKind", "base", { id = "base_upload_attempted", visible = false }],
+            [".", "S3UploadAttempted", ".", ".", ".", "pr", { id = "pr_upload_attempted", visible = false }],
+            [".", "S3UploadSucceeded", ".", ".", ".", "base", { id = "base_upload_succeeded", visible = false }],
+            [".", "S3UploadSucceeded", ".", ".", ".", "pr", { id = "pr_upload_succeeded", visible = false }],
+            [var.metrics_namespace, "DiffReportWriteAttempted", { id = "diff_write_attempted", visible = false }],
+            [".", "DiffReportWriteSucceeded", { id = "diff_write_succeeded", visible = false }],
+            [{ expression = "100*((base_upload_succeeded+pr_upload_succeeded+diff_write_succeeded)/(base_upload_attempted+pr_upload_attempted+diff_write_attempted))", label = "S3 Storage Success Rate (%)", id = "s3_storage_success_rate" }],
+          ]
+          period = 300
+          stat   = "Sum"
+          yAxis = {
+            left = {
+              min = 0
+              max = 100
+            }
+          }
         }
       }
     ]

@@ -58,6 +58,10 @@ output "trigger_lambda_name" {
   value = aws_lambda_function.trigger.function_name
 }
 
+output "github_webhook_url" {
+  value = "${aws_apigatewayv2_api.github_webhook.api_endpoint}/github/webhook"
+}
+
 output "ecs_cluster_arn" {
   value = aws_ecs_cluster.scanner.arn
 }

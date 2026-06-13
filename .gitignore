@@ -11,6 +11,12 @@ terraform.exe
 
 # Variable files
 *.auto.tfvars
+secrets.auto.tfvars
+secrets.auto.tfvars.*
+
+# Local credentials/secrets
+aws-credentials/
+aws-credentials.txt
 
 # IDE
 .vscode/

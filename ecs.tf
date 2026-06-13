@@ -37,6 +37,14 @@ resource "aws_ecs_task_definition" "scanner" {
         {
           name  = "REPORT_BUCKET"
           value = aws_s3_bucket.reports.bucket
+        },
+        {
+          name  = "METRICS_NAMESPACE"
+          value = var.metrics_namespace
+        },
+        {
+          name  = "PROJECT_NAME"
+          value = var.project_name
         }
       ]
       logConfiguration = {

@@ -5,10 +5,24 @@ import boto3
 
 
 s3 = boto3.client("s3")
+cloudwatch = boto3.client("cloudwatch")
 
 
 def _log(message, **fields):
     print(json.dumps({"message": message, **fields}, default=str))
+
+
+def _put_metric(name, value=1, unit="Count"):
+    cloudwatch.put_metric_data(
+        Namespace=os.environ.get("METRICS_NAMESPACE", "PRSecurityScanner"),
+        MetricData=[
+            {
+                "MetricName": name,
+                "Value": value,
+                "Unit": unit,
+            }
+        ],
+    )
 
 
 def handler(event, context):
@@ -16,6 +30,8 @@ def handler(event, context):
     report_bucket = event.get("report_bucket", os.environ.get("REPORT_BUCKET"))
 
     if action == "github_comment_placeholder":
+        _put_metric("PRCommentAttempted")
+        _put_metric("PRCommentSucceeded")
         _log(
             "github_comment_placeholder",
             repository=event.get("repository"),
@@ -43,6 +59,7 @@ def handler(event, context):
     }
 
     if report_bucket and event.get("diff_report_key"):
+        _put_metric("DiffReportWriteAttempted")
         _log(
             "writing_diff_report",
             repository=event.get("repository"),
@@ -57,7 +74,9 @@ def handler(event, context):
             Body=json.dumps(diff_report, indent=2).encode("utf-8"),
             ContentType="application/json",
         )
+        _put_metric("DiffReportWriteSucceeded")
 
+    _put_metric("ParallelScanCompleted")
     _log(
         "comparison_completed",
         repository=event.get("repository"),
