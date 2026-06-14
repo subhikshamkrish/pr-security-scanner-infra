@@ -51,12 +51,42 @@ def _put_metric(name, value=1, unit="Count"):
 
 def build_unique_fingerprint(vuln):
 
-    return vuln.get(
-        "extra",
-        {}
-    ).get(
-        "fingerprint",
+    check_id = vuln.get(
+        "check_id",
         ""
+    )
+
+    raw_path = vuln.get(
+        "path",
+        ""
+    )
+
+    line = str(
+        vuln.get(
+            "start",
+            {}
+        ).get(
+            "line",
+            ""
+        )
+    )
+
+    normalized_path = raw_path
+
+    if "/source/" in raw_path:
+
+        normalized_path = raw_path.split("/source/")[-1]
+
+        parts = normalized_path.split("/", 1)
+
+        if len(parts) > 1:
+
+            normalized_path = parts[1]
+
+    return (
+        f"{check_id}|"
+        f"{normalized_path}|"
+        f"{line}"
     )
 
 
