@@ -50,9 +50,11 @@ output "comparison_lambda_arn" {
   value = aws_lambda_function.comparison.arn
 }
 
+/*
 output "cleanup_lambda_arn" {
   value = aws_lambda_function.cleanup.arn
 }
+*/
 
 output "trigger_lambda_name" {
   value = aws_lambda_function.trigger.function_name

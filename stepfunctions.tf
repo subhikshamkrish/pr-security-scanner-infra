@@ -12,15 +12,22 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
   definition = jsonencode({
     Comment = "Differential PR Security Scanner orchestration"
     StartAt = "RunScansInParallel"
+
     States = {
+
       RunScansInParallel = {
         Type = "Parallel"
+
         Branches = [
+
           {
             StartAt = "CheckBaseScanCache"
+
             States = {
+
               CheckBaseScanCache = {
                 Type = "Choice"
+
                 Choices = [
                   {
                     Variable      = "$.base.report_exists"
@@ -28,24 +35,31 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
                     Next          = "UseCachedBaseReport"
                   }
                 ]
+
                 Default = "BaseScan"
               }
+
               UseCachedBaseReport = {
                 Type = "Pass"
+
                 Parameters = {
                   scan_kind      = "base"
                   cache_hit      = true
                   "report_key.$" = "$.base.report_key"
                 }
+
                 End = true
               }
+
               BaseScan = {
                 Type     = "Task"
                 Resource = "arn:aws:states:::ecs:runTask.sync"
+
                 Parameters = {
                   Cluster        = aws_ecs_cluster.scanner.arn
                   TaskDefinition = aws_ecs_task_definition.scanner.arn
                   LaunchType     = "FARGATE"
+
                   NetworkConfiguration = {
                     AwsvpcConfiguration = {
                       Subnets        = [aws_subnet.private.id]
@@ -53,10 +67,12 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
                       AssignPublicIp = "DISABLED"
                     }
                   }
+
                   Overrides = {
                     ContainerOverrides = [
                       {
                         Name = "scanner"
+
                         Environment = [
                           {
                             Name  = "SCAN_KIND"
@@ -91,6 +107,7 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
                     ]
                   }
                 }
+
                 Retry = [
                   {
                     ErrorEquals     = ["States.ALL"]
@@ -99,15 +116,20 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
                     BackoffRate     = 2
                   }
                 ]
+
                 End = true
               }
             }
           },
+
           {
             StartAt = "CheckPrScanCache"
+
             States = {
+
               CheckPrScanCache = {
                 Type = "Choice"
+
                 Choices = [
                   {
                     Variable      = "$.pr.report_exists"
@@ -115,24 +137,31 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
                     Next          = "UseCachedPrReport"
                   }
                 ]
+
                 Default = "PrScan"
               }
+
               UseCachedPrReport = {
                 Type = "Pass"
+
                 Parameters = {
                   scan_kind      = "pr"
                   cache_hit      = true
                   "report_key.$" = "$.pr.report_key"
                 }
+
                 End = true
               }
+
               PrScan = {
                 Type     = "Task"
                 Resource = "arn:aws:states:::ecs:runTask.sync"
+
                 Parameters = {
                   Cluster        = aws_ecs_cluster.scanner.arn
                   TaskDefinition = aws_ecs_task_definition.scanner.arn
                   LaunchType     = "FARGATE"
+
                   NetworkConfiguration = {
                     AwsvpcConfiguration = {
                       Subnets        = [aws_subnet.private.id]
@@ -140,10 +169,12 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
                       AssignPublicIp = "DISABLED"
                     }
                   }
+
                   Overrides = {
                     ContainerOverrides = [
                       {
                         Name = "scanner"
+
                         Environment = [
                           {
                             Name  = "SCAN_KIND"
@@ -178,6 +209,7 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
                     ]
                   }
                 }
+
                 Retry = [
                   {
                     ErrorEquals     = ["States.ALL"]
@@ -186,26 +218,33 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
                     BackoffRate     = 2
                   }
                 ]
+
                 End = true
               }
             }
           }
         ]
+
         ResultPath = "$.scan_results"
+
         Catch = [
           {
             ErrorEquals = ["States.ALL"]
             ResultPath  = "$.error"
-            Next        = "CleanupAfterFailure"
+            Next        = "WorkflowFailed"
           }
         ]
+
         Next = "RunComparison"
       }
+
       RunComparison = {
         Type     = "Task"
         Resource = "arn:aws:states:::lambda:invoke"
+
         Parameters = {
           FunctionName = aws_lambda_function.comparison.arn
+
           Payload = {
             action              = "compare"
             report_bucket       = aws_s3_bucket.reports.bucket
@@ -217,6 +256,7 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
             "scan_results.$"    = "$.scan_results"
           }
         }
+
         Retry = [
           {
             ErrorEquals     = ["States.ALL"]
@@ -225,21 +265,27 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
             BackoffRate     = 2
           }
         ]
+
         ResultPath = "$.comparison"
+
         Catch = [
           {
             ErrorEquals = ["States.ALL"]
             ResultPath  = "$.error"
-            Next        = "CleanupAfterFailure"
+            Next        = "WorkflowFailed"
           }
         ]
+
         Next = "PostGithubCommentPlaceholder"
       }
+
       PostGithubCommentPlaceholder = {
         Type     = "Task"
         Resource = "arn:aws:states:::lambda:invoke"
+
         Parameters = {
           FunctionName = aws_lambda_function.comparison.arn
+
           Payload = {
             action              = "github_comment_placeholder"
             report_bucket       = aws_s3_bucket.reports.bucket
@@ -248,6 +294,7 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
             "comparison.$"      = "$.comparison.Payload"
           }
         }
+
         Retry = [
           {
             ErrorEquals     = ["States.ALL"]
@@ -256,32 +303,9 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
             BackoffRate     = 2
           }
         ]
+
         ResultPath = "$.github_comment"
-        Catch = [
-          {
-            ErrorEquals = ["States.ALL"]
-            ResultPath  = "$.error"
-            Next        = "CleanupAfterFailure"
-          }
-        ]
-        Next = "CleanupAfterSuccess"
-      }
-      CleanupAfterSuccess = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::lambda:invoke"
-        Parameters = {
-          FunctionName = aws_lambda_function.cleanup.arn
-          "Payload.$"  = "$"
-        }
-        Retry = [
-          {
-            ErrorEquals     = ["States.ALL"]
-            IntervalSeconds = 2
-            MaxAttempts     = 2
-            BackoffRate     = 2
-          }
-        ]
-        ResultPath = "$.cleanup"
+
         Catch = [
           {
             ErrorEquals = ["States.ALL"]
@@ -289,29 +313,14 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
             Next        = "WorkflowFailed"
           }
         ]
+
         Next = "WorkflowSucceeded"
       }
-      CleanupAfterFailure = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::lambda:invoke"
-        Parameters = {
-          FunctionName = aws_lambda_function.cleanup.arn
-          "Payload.$"  = "$"
-        }
-        Retry = [
-          {
-            ErrorEquals     = ["States.ALL"]
-            IntervalSeconds = 2
-            MaxAttempts     = 2
-            BackoffRate     = 2
-          }
-        ]
-        ResultPath = "$.cleanup"
-        Next       = "WorkflowFailed"
-      }
+
       WorkflowSucceeded = {
         Type = "Succeed"
       }
+
       WorkflowFailed = {
         Type  = "Fail"
         Cause = "Differential PR Security Scanner workflow failed"

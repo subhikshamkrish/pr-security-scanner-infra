@@ -8,10 +8,12 @@ resource "aws_cloudwatch_log_group" "comparison_lambda" {
   retention_in_days = var.log_retention_days
 }
 
+/*
 resource "aws_cloudwatch_log_group" "cleanup_lambda" {
   name              = "/aws/lambda/${var.project_name}-${var.environment}-cleanup"
   retention_in_days = var.log_retention_days
 }
+*/
 
 resource "aws_cloudwatch_log_group" "ecs_scanner" {
   name              = "/aws/ecs/${var.project_name}-${var.environment}-scanner"
@@ -125,7 +127,7 @@ resource "aws_cloudwatch_dashboard" "scanner" {
           metrics = [
             ["AWS/Lambda", "Errors", "FunctionName", aws_lambda_function.trigger.function_name],
             [".", ".", ".", aws_lambda_function.comparison.function_name],
-            [".", ".", ".", aws_lambda_function.cleanup.function_name],
+            #            [".", ".", ".", aws_lambda_function.cleanup.function_name],
           ]
           period = 300
           stat   = "Sum"
@@ -145,7 +147,7 @@ resource "aws_cloudwatch_dashboard" "scanner" {
           metrics = [
             ["AWS/Lambda", "Duration", "FunctionName", aws_lambda_function.trigger.function_name],
             [".", ".", ".", aws_lambda_function.comparison.function_name],
-            [".", ".", ".", aws_lambda_function.cleanup.function_name],
+            #            [".", ".", ".", aws_lambda_function.cleanup.function_name],
           ]
           period = 300
           stat   = "Average"

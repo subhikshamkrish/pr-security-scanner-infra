@@ -10,11 +10,13 @@ data "archive_file" "comparison_lambda" {
   output_path = "${path.module}/comparison_lambda.zip"
 }
 
+/*
 data "archive_file" "cleanup_lambda" {
   type        = "zip"
   source_dir  = "${path.module}/lambda/cleanup"
   output_path = "${path.module}/cleanup_lambda.zip"
 }
+*/
 
 resource "aws_lambda_function" "trigger" {
   function_name    = "${var.project_name}-${var.environment}-trigger"
@@ -56,6 +58,7 @@ resource "aws_lambda_function" "comparison" {
   depends_on = [aws_cloudwatch_log_group.comparison_lambda]
 }
 
+/*
 resource "aws_lambda_function" "cleanup" {
   function_name    = "${var.project_name}-${var.environment}-cleanup"
   role             = data.aws_iam_role.lab_role.arn
@@ -74,3 +77,4 @@ resource "aws_lambda_function" "cleanup" {
 
   depends_on = [aws_cloudwatch_log_group.cleanup_lambda]
 }
+*/
