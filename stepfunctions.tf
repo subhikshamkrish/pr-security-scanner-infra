@@ -225,7 +225,18 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
           }
         ]
 
-        ResultPath = "$.scan_results"
+        ResultSelector = {
+          "scan_results.$"    = "$"
+          "repository.$"      = "$$.Execution.Input.repository"
+          "github_owner.$"    = "$$.Execution.Input.github_owner"
+          "github_repo.$"     = "$$.Execution.Input.github_repo"
+          "pr_number.$"       = "$$.Execution.Input.pr_number"
+          "base.$"            = "$$.Execution.Input.base"
+          "pr.$"              = "$$.Execution.Input.pr"
+          "diff_report_key.$" = "$$.Execution.Input.diff_report_key"
+        }
+
+        ResultPath = "$"
 
         Catch = [
           {
@@ -252,8 +263,9 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
             "base_report_key.$" = "$.base.report_key"
             "pr_report_key.$"   = "$.pr.report_key"
             "diff_report_key.$" = "$.diff_report_key"
-            "execution_id.$"    = "$$.Execution.Id"
-            "scan_results.$"    = "$.scan_results"
+            "github_owner.$"    = "$.github_owner"
+            "github_repo.$"     = "$.github_repo"
+            "pr_number.$"       = "$.pr_number"
           }
         }
 
@@ -267,44 +279,6 @@ resource "aws_sfn_state_machine" "scanner_workflow" {
         ]
 
         ResultPath = "$.comparison"
-
-        Catch = [
-          {
-            ErrorEquals = ["States.ALL"]
-            ResultPath  = "$.error"
-            Next        = "WorkflowFailed"
-          }
-        ]
-
-        Next = "PostGithubCommentPlaceholder"
-      }
-
-      PostGithubCommentPlaceholder = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::lambda:invoke"
-
-        Parameters = {
-          FunctionName = aws_lambda_function.comparison.arn
-
-          Payload = {
-            action              = "github_comment_placeholder"
-            report_bucket       = aws_s3_bucket.reports.bucket
-            "repository.$"      = "$.repository"
-            "diff_report_key.$" = "$.diff_report_key"
-            "comparison.$"      = "$.comparison.Payload"
-          }
-        }
-
-        Retry = [
-          {
-            ErrorEquals     = ["States.ALL"]
-            IntervalSeconds = 2
-            MaxAttempts     = 2
-            BackoffRate     = 2
-          }
-        ]
-
-        ResultPath = "$.github_comment"
 
         Catch = [
           {
