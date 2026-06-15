@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Differential PR Security Scanner</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            background: #081120;
+            color: #e5e7eb;
+            font-family: Arial, sans-serif;
+        }
+
+        h1,
+        h2 {
+            margin-top: 0;
+        }
+
+        .card {
+            background: #16233b;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .summary {
+            color: #38bdf8;
+            font-size: 18px;
+            margin-top: 12px;
+        }
+
+        .badges {
+            display: flex;
+            gap: 12px;
+            margin-top: 18px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .red {
+            background: #991b1b;
+        }
+
+        .green {
+            background: #166534;
+        }
+
+        .orange {
+            background: #92400e;
+        }
+
+        .blue {
+            background: #1d4ed8;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 18px;
+            min-width: 1200px;
+        }
+
+        th {
+            background: #334155;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #334155;
+            vertical-align: top;
+            font-size: 14px;
+        }
+
+        tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .warning {
+            color: #facc15;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #ef4444;
+            font-weight: bold;
+        }
+
+        .info {
+            color: #38bdf8;
+            font-weight: bold;
+        }
+
+        .status-unchanged {
+            color: #3b82f6;
+            font-weight: bold;
+        }
+
+        .status-improved {
+            color: #22c55e;
+            font-weight: bold;
+        }
+
+        .status-worsened {
+            color: #ef4444;
+            font-weight: bold;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <h1>Differential PR Security Scanner</h1>
+
+        <div id="summary" class="summary"></div>
+
+        <div class="badges">
+            <div class="badge red" id="newBadge"></div>
+            <div class="badge green" id="fixedBadge"></div>
+            <div class="badge orange" id="worsenedBadge"></div>
+            <div class="badge blue" id="existingBadge"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>GitHub PR Comment</h2>
+        <pre id="githubComment"></pre>
+    </div>
+
+    <div class="card">
+        <h2>New Vulnerabilities</h2>
+        <table id="newTable">
+            <thead>
+                <tr>
+                    <th>Fingerprint</th>
+                    <th>ID</th>
+                    <th>Severity</th>
+                    <th>File</th>
+                    <th>Line</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Fixed Vulnerabilities</h2>
+        <table id="fixedTable">
+            <thead>
+                <tr>
+                    <th>Fingerprint</th>
+                    <th>ID</th>
+                    <th>Severity</th>
+                    <th>File</th>
+                    <th>Line</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Existing Vulnerabilities</h2>
+        <table id="existingTable">
+            <thead>
+                <tr>
+                    <th>Fingerprint</th>
+                    <th>ID</th>
+                    <th>Status</th>
+                    <th>Old Severity</th>
+                    <th>New Severity</th>
+                    <th>File</th>
+                    <th>Line</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Base vs PR Scan</h2>
+
+        <table id="compareTable">
+
+            <thead>
+
+                <tr>
+                    <th rowspan="2">Key</th>
+
+                    <th colspan="4">Base Scan</th>
+
+                    <th colspan="4">PR Scan</th>
+                </tr>
+
+                <tr>
+                    <th>ID</th>
+                    <th>Severity</th>
+                    <th>File</th>
+                    <th>Line</th>
+
+                    <th>ID</th>
+                    <th>Severity</th>
+                    <th>File</th>
+                    <th>Line</th>
+                </tr>
+
+            </thead>
+
+            <tbody></tbody>
+
+        </table>
+
+    </div>
+
+    <script>
+
+        async function loadJson(path) {
+            const response = await fetch(path);
+            return await response.json();
+        }
+
+        function severityClass(severity) {
+
+            if (!severity) return "info";
+
+            const s = severity.toLowerCase();
+
+            if (s.includes("warning")) return "warning";
+            if (s.includes("error")) return "error";
+
+            return "info";
+        }
+
+        function cleanPath(path) {
+
+            if (!path) return "N/A";
+
+            const markers = [
+                "Kambaz",
+                "Lab5"
+            ];
+
+            for (const marker of markers) {
+
+                const idx = path.indexOf(marker);
+
+                if (idx !== -1) {
+                    return path.substring(idx);
+                }
+            }
+
+            return path;
+        }
+
+        function createKey(v) {
+
+            return [
+                v.check_id,
+                cleanPath(v.path),
+                v.start?.line || 0
+            ].join("|");
+        }
+
+        function addRow(tableId, html) {
+
+            document
+                .querySelector(`#${tableId} tbody`)
+                .insertAdjacentHTML("beforeend", html);
+        }
+
+        function renderSimpleTable(tableId, items) {
+
+            items.forEach(v => {
+
+                addRow(tableId, `
+                    <tr>
+                        <td>${v.fingerprint}</td>
+                        <td>${v.id}</td>
+
+                        <td class="${severityClass(v.severity)}">
+                            ${v.severity}
+                        </td>
+
+                        <td>${cleanPath(v.file)}</td>
+
+                        <td>${v.line}</td>
+
+                        <td>${v.message}</td>
+                    </tr>
+                `);
+
+            });
+
+        }
+
+        function renderExisting(items) {
+
+            items.forEach(v => {
+
+                addRow("existingTable", `
+                    <tr>
+                        <td>${v.fingerprint}</td>
+
+                        <td>${v.id}</td>
+
+                        <td class="status-unchanged">
+                            ${v.status}
+                        </td>
+
+                        <td class="${severityClass(v.old_severity)}">
+                            ${v.old_severity}
+                        </td>
+
+                        <td class="${severityClass(v.new_severity)}">
+                            ${v.new_severity}
+                        </td>
+
+                        <td>${cleanPath(v.file)}</td>
+
+                        <td>${v.line}</td>
+
+                        <td>${v.message}</td>
+                    </tr>
+                `);
+
+            });
+
+        }
+
+        function renderSideBySide(base, pr) {
+
+            const baseMap = new Map();
+            const prMap = new Map();
+
+            base.results.forEach(v => {
+                baseMap.set(createKey(v), v);
+            });
+
+            pr.results.forEach(v => {
+                prMap.set(createKey(v), v);
+            });
+
+            const keys = new Set([
+                ...baseMap.keys(),
+                ...prMap.keys()
+            ]);
+
+            keys.forEach(key => {
+
+                const b = baseMap.get(key);
+                const p = prMap.get(key);
+
+                addRow("compareTable", `
+                    <tr>
+
+                        <td>${key}</td>
+
+                        <td>${b?.check_id || "N/A"}</td>
+
+                        <td class="${severityClass(b?.extra?.severity)}">
+                            ${b?.extra?.severity || "N/A"}
+                        </td>
+
+                        <td>${b ? cleanPath(b.path) : "N/A"}</td>
+
+                        <td>${b?.start?.line || "N/A"}</td>
+
+                        <td>${p?.check_id || "N/A"}</td>
+
+                        <td class="${severityClass(p?.extra?.severity)}">
+                            ${p?.extra?.severity || "N/A"}
+                        </td>
+
+                        <td>${p ? cleanPath(p.path) : "N/A"}</td>
+
+                        <td>${p?.start?.line || "N/A"}</td>
+
+                    </tr>
+                `);
+
+            });
+
+        }
+
+        async function init() {
+
+            const base =
+                await loadJson("./base_report.json");
+
+            const pr =
+                await loadJson("./pr_report.json");
+
+            const comparison =
+                await loadJson("./comparison_report.json");
+
+            document.getElementById("summary").innerText =
+                comparison.summary.summary_text;
+
+            document.getElementById("newBadge").innerText =
+                `New: ${comparison.summary.new}`;
+
+            document.getElementById("fixedBadge").innerText =
+                `Fixed: ${comparison.summary.fixed}`;
+
+            document.getElementById("worsenedBadge").innerText =
+                `Worsened: ${comparison.summary.worsened}`;
+
+            document.getElementById("existingBadge").innerText =
+                `Existing: ${comparison.summary.existing}`;
+
+            document.getElementById("githubComment").innerText =
+                comparison.github_pr_comment || "";
+
+            renderSimpleTable(
+                "newTable",
+                comparison.new_vulnerabilities || []
+            );
+
+            renderSimpleTable(
+                "fixedTable",
+                comparison.fixed_vulnerabilities || []
+            );
+
+            renderExisting(
+                comparison.existing_vulnerabilities || []
+            );
+
+            renderSideBySide(base, pr);
+        }
+
+        init();
+
+    </script>
+
+</body>
+
+</html>
